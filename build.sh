@@ -15,6 +15,15 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 
+cd ../../cugl
+
+echo "Configuring and building Thirdparty/cugl ..."
+
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j
+
 cd ../../../
 
 echo "Uncompress vocabulary ..."

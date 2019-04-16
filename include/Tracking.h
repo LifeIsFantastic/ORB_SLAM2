@@ -37,6 +37,7 @@
 #include "Initializer.h"
 #include "MapDrawer.h"
 #include "System.h"
+#include "FpsWatch.h"
 
 #include <mutex>
 
@@ -49,6 +50,7 @@ class Map;
 class LocalMapping;
 class LoopClosing;
 class System;
+class FpsWatch;
 
 class Tracking
 {  
@@ -118,7 +120,7 @@ public:
 protected:
 
     // Main tracking function. It is independent of the input sensor.
-    void Track();
+    void Track(const double &timestamp);
 
     // Map initialization for stereo and RGB-D
     void StereoInitialization();
@@ -180,6 +182,9 @@ protected:
 
     //Map
     Map* mpMap;
+
+    //Fps Watch
+    FpsWatch mFpsWatch;
 
     //Calibration matrix
     cv::Mat mK;

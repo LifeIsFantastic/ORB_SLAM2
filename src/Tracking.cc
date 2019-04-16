@@ -198,7 +198,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
 
     mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
-    Track();
+    Track(timestamp);
 
     return mCurrentFrame.mTcw.clone();
 }
@@ -229,7 +229,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const d
 
     mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
-    Track();
+    Track(timestamp);
 
     return mCurrentFrame.mTcw.clone();
 }
@@ -259,12 +259,12 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     else
         mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
-    Track();
+    Track(timestamp);
 
     return mCurrentFrame.mTcw.clone();
 }
 
-void Tracking::Track()
+void Tracking::Track(const double &timestamp)
 {
     if(mState==NO_IMAGES_YET)
     {
@@ -287,6 +287,8 @@ void Tracking::Track()
 
         if(mState!=OK)
             return;
+
+        mFpsWatch.init(timestamp);
     }
     else
     {
@@ -483,6 +485,12 @@ void Tracking::Track()
             mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
         mLastFrame = Frame(mCurrentFrame);
+
+        int tracking_fps;
+        if (mFpsWatch.update(timestamp, tracking_fps))
+        {
+            cout << "[tracking] : fps(" << tracking_fps << ")" << endl;
+        }
     }
 
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
