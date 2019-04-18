@@ -328,11 +328,19 @@ static int bit_pattern_31_[256*4] =
     -1,-6, 0,-11/*mean (0.127148), correlation (0.547401)*/
 };
 
+/*
+ * Public Methods
+ */
+
 GpuOrbExtractor::GpuOrbExtractor(int _nfeatures, float _scaleFactor, int _nlevels,
                                  int _iniThFAST, int _minThFAST)
     : nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
       iniThFAST(_iniThFAST), minThFAST(_minThFAST)
 {
+    // TODO: init mGpuFast and mGpuOrb here
+    // TODO: init mGpuFast and mGpuOrb here
+    // TODO: init mGpuFast and mGpuOrb here
+
     mvScaleFactor.resize(nlevels);
     mvLevelSigma2.resize(nlevels);
     mvScaleFactor[0]=1.0f;
@@ -352,7 +360,8 @@ GpuOrbExtractor::GpuOrbExtractor(int _nfeatures, float _scaleFactor, int _nlevel
     }
 
     // Allocate GPU memory to the image pyramid when the first frame comes
-    // mvImagePyramid.resize(nlevels);
+    mvImagePyramidBorder.resize(nlevels);
+    mvImagePyramid.resize(nlevels);
     mbImagePyramidAllocFlag = false;
 
     mnFeaturesPerLevel.resize(nlevels);
@@ -395,7 +404,7 @@ GpuOrbExtractor::GpuOrbExtractor(int _nfeatures, float _scaleFactor, int _nlevel
     }
 
     // Load umax data to gpu
-    cuda::GpuIcAngle::loadUMaxData(umax.data(), umax.size());
+    cuda::GpuFast::loadUMaxData(umax.data(), umax.size());
 }
 
 void GpuOrbExtractor::operator()(InputArray _image,
@@ -411,10 +420,10 @@ void GpuOrbExtractor::operator()(InputArray _image,
     assert(image.type() == CV_8UC1 );
 
     // Pre-compute the scale pyramid
-    ComputePyramid(image);
+    computePyramid(image);
 
     vector<vector<KeyPoint>> allKeypoints;
-    ComputeKeyPointsOctTree(allKeypoints);
+    computeKeyPointsOctTree(allKeypoints);
 
     Mat descriptors;
 
@@ -481,4 +490,115 @@ void GpuOrbExtractor::operator()(InputArray _image,
     // POP_RANGE;
 }
 
-} //namespace ORB_SLAM2
+/*
+ * Private Methods
+ */
+
+void GpuOrbExtractor::computePyramid(Mat image)
+{
+    for (int level = 0; level < nlevels; ++level)
+    {
+        float scale = mvInvScaleFactor[level];
+
+        Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
+        Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
+
+        if (mbImagePyramidAllocFlag == false)
+        {
+            // Allocate GPU memory when first frame arrives
+            cuda::GpuMat target(wholeSize, image.type(), cuda::gpu_mat_allocator);
+
+            mvImagePyramidBorder[level] = target;
+            mvImagePyramid[level] = target(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
+        }
+
+        if (level != 0)
+        {
+            cuda::resize(mvImagePyramid[level-1],
+                         mvImagePyramid[level],
+                         sz, 0, 0, INTER_LINEAR, mcvStream);
+
+            cuda::copyMakeBorder(mvImagePyramid[level],
+                                 mvImagePyramidBorder[level],
+                                 EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                                 BORDER_REFLECT_101 + BORDER_ISOLATED, cv::Scalar(), mcvStream);
+        }
+        else
+        {
+            cuda::GpuMat gpuImg(image);
+
+            cuda::copyMakeBorder(gpuImg,
+                                 mvImagePyramidBorder[0],
+                                 EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                                 BORDER_REFLECT_101, cv::Scalar(), mcvStream);
+        }
+    }
+
+    mcvStream.waitForCompletion();
+
+    if (mbImagePyramidAllocFlag == false)
+    {
+        mpGaussianFilter = cuda::createGaussianFilter(mvImagePyramid[0].type(),
+                                                      mvImagePyramid[0].type(),
+                                                      Size(7, 7), 2, 2, BORDER_REFLECT_101);
+
+        mbImagePyramidAllocFlag = true;
+    }
+}
+
+void GpuOrbExtractor::computeKeyPointsOctTree(vector< vector<KeyPoint> > &allKeypoints)
+{
+    allKeypoints.resize(nlevels);
+
+    const int minBorderX = EDGE_THRESHOLD-3;
+    const int minBorderY = minBorderX;
+    for (int level = 0; level < nlevels; ++level)
+    {
+        const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
+        const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
+
+        vector<cv::KeyPoint> vToDistributeKeys;
+        vToDistributeKeys.reserve(nfeatures*10);
+
+        // Detect FAST corners
+        if (level == 0)
+        {
+            mGpuFast.detectAsync(mvImagePyramid[level].rowRange(minBorderY, maxBorderY).colRange(minBorderX, maxBorderX));
+        }
+
+        mGpuFast.joinDetectAsync(vToDistributeKeys);
+
+        if (level + 1 < nlevels)
+        {
+            // Pre-process the next level
+            const int maxBorderX = mvImagePyramid[level+1].cols-EDGE_THRESHOLD+3;
+            const int maxBorderY = mvImagePyramid[level+1].rows-EDGE_THRESHOLD+3;
+
+            mGpuFast.detectAsync(mvImagePyramid[level+1].rowRange(minBorderY, maxBorderY).colRange(minBorderX, maxBorderX));
+        }
+
+        vector<KeyPoint> &keypoints = allKeypoints[level];
+        keypoints.reserve(nfeatures);
+
+        // PUSH_RANGE("DistributeOctTree", 3);
+        keypoints = DistributeOctTree(vToDistributeKeys,
+                                      minBorderX, maxBorderX,
+                                      minBorderY, maxBorderY,
+                                      mnFeaturesPerLevel[level], level);
+        // POP_RANGE;
+
+        // Compute orientations and perform Gaussian blur
+        cuda::GpuMat &gpuImg = mvImagePyramid[level];
+
+        mGpuFast.getAngle(gpuImg,
+                          keypoints.data(),
+                          keypoints.size(),
+                          minBorderX, minBorderY,
+                          HALF_PATCH_SIZE,
+                          level, PATCH_SIZE * mvScaleFactor[level]);
+
+        mpGaussianFilter->apply(gpuImg, gpuImg, mGpuFast.getCvStream());
+    } // loop every level
+}
+
+} // namespace ORB_SLAM2

@@ -63,15 +63,15 @@ private:
 
     // CUDA related members
     bool mbImagePyramidAllocFlag;
+    std::vector<cv::cuda::GpuMat> mvImagePyramidBorder;
     std::vector<cv::cuda::GpuMat> mvImagePyramid;
 
     cv::cuda::Stream mcvStream;
 
     cv::Ptr<cv::cuda::Filter> mpGaussianFilter;
 
-    cuda::GpuFast    mGpuFast;
-    cuda::GpuIcAngle mGpuIcAngle;
-    cuda::GpuOrb     mGpuOrb;
+    cuda::GpuFast      mGpuFast;
+    cuda::GpuOrb       mGpuOrb;
 
 };
 
