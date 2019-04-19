@@ -6,8 +6,6 @@
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/core/cuda_devptrs.hpp>
 
-// TODO: include cugl
-
 namespace ORB_SLAM2
 {
 namespace cuda
@@ -37,7 +35,7 @@ public:
                        int octave, int size); // TODO: size (float or int ??)
     void jointGetAngleAsync(std::vector<cv::KeyPoint> &keypoints);
 
-    cv::cuda::Stream& getCvStream() { return mcvStream; }
+    cv::cuda::Stream& getCvStream() { return mCvStream; }
 
     static void loadUMaxData(const int* umax, int count);
 
@@ -45,11 +43,14 @@ protected:
     unsigned int mHighThres;
     unsigned int mLowThres;
     unsigned int mMaxKeypoints;
-    unsigned int mCount;
+    unsigned int mCountHost;
+
+    cv::KeyPoint *mpKeyptsDevice;
 
     cv::cuda::GpuMat scoreMat;
 
-    cv::cuda::Stream mcvStream;
+    cv::cuda::Stream mCvStream;
+    cudaStream_t mCudaStream;
 };
 
 } // namesapce cuda

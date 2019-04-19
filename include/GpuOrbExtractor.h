@@ -50,6 +50,9 @@ public:
                             std::vector<cv::KeyPoint> &keypoints,
                             cv::OutputArray descriptors);
 
+    std::vector<cv::cuda::GpuMat> mvGpuImagePyramidBorder;
+    std::vector<cv::cuda::GpuMat> mvGpuImagePyramid;
+
 private:
 
     void computePyramid(cv::Mat image);
@@ -63,15 +66,13 @@ private:
 
     // CUDA related members
     bool mbImagePyramidAllocFlag;
-    std::vector<cv::cuda::GpuMat> mvImagePyramidBorder;
-    std::vector<cv::cuda::GpuMat> mvImagePyramid;
 
-    cv::cuda::Stream mcvStream;
+    cv::cuda::Stream mCvStream;
 
     cv::Ptr<cv::cuda::Filter> mpGaussianFilter;
 
-    cuda::GpuFast      mGpuFast;
-    cuda::GpuOrb       mGpuOrb;
+    cuda::GpuFast mGpuFast;
+    cuda::GpuOrb  mGpuOrb;
 
 };
 

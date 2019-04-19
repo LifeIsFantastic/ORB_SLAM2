@@ -83,6 +83,8 @@ public:
         return mvInvLevelSigma2;
     }
 
+    std::vector<cv::Mat> mvImagePyramid;
+
 protected:
 
     std::vector<cv::Point> pattern;
@@ -114,8 +116,6 @@ private:
                                                 const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> > &allKeypoints);
-
-    std::vector<cv::Mat> mvImagePyramid;
 
 };
 

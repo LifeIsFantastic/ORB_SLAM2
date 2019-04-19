@@ -360,8 +360,8 @@ GpuOrbExtractor::GpuOrbExtractor(int _nfeatures, float _scaleFactor, int _nlevel
     }
 
     // Allocate GPU memory to the image pyramid when the first frame comes
-    mvImagePyramidBorder.resize(nlevels);
-    mvImagePyramid.resize(nlevels);
+    mvGpuImagePyramidBorder.resize(nlevels);
+    mvGpuImagePyramid.resize(nlevels);
     mbImagePyramidAllocFlag = false;
 
     mnFeaturesPerLevel.resize(nlevels);
@@ -452,7 +452,7 @@ void GpuOrbExtractor::operator()(InputArray _image,
             continue;
 
         // preprocess the resized image
-        cv::cuda::GpuMat &gMat = mvImagePyramid[level];
+        cv::cuda::GpuMat &gMat = mvGpuImagePyramid[level];
 
         // Compute of Gaussion Blur is pipelined into `ComputeKeyPointsOctTree()`
 
@@ -470,7 +470,7 @@ void GpuOrbExtractor::operator()(InputArray _image,
         if (level + 1 < nlevels)
         {
           vector<KeyPoint>& keypoints = allKeypoints[level+1];
-          gpuOrb.launch_async(mvImagePyramid[level+1], keypoints.data(), keypoints.size());
+          gpuOrb.launch_async(mvGpuImagePyramid[level+1], keypoints.data(), keypoints.size());
         }
 
         // Scale keypoint coordinates
@@ -508,38 +508,38 @@ void GpuOrbExtractor::computePyramid(Mat image)
             // Allocate GPU memory when first frame arrives
             cuda::GpuMat target(wholeSize, image.type(), cuda::gpu_mat_allocator);
 
-            mvImagePyramidBorder[level] = target;
-            mvImagePyramid[level] = target(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
+            mvGpuImagePyramidBorder[level] = target;
+            mvGpuImagePyramid[level] = target(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
         }
 
         if (level != 0)
         {
-            cuda::resize(mvImagePyramid[level-1],
-                         mvImagePyramid[level],
-                         sz, 0, 0, INTER_LINEAR, mcvStream);
+            cuda::resize(mvGpuImagePyramid[level-1],
+                         mvGpuImagePyramid[level],
+                         sz, 0, 0, INTER_LINEAR, mCvStream);
 
-            cuda::copyMakeBorder(mvImagePyramid[level],
-                                 mvImagePyramidBorder[level],
+            cuda::copyMakeBorder(mvGpuImagePyramid[level],
+                                 mvGpuImagePyramidBorder[level],
                                  EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                                 BORDER_REFLECT_101 + BORDER_ISOLATED, cv::Scalar(), mcvStream);
+                                 BORDER_REFLECT_101 + BORDER_ISOLATED, cv::Scalar(), mCvStream);
         }
         else
         {
             cuda::GpuMat gpuImg(image);
 
             cuda::copyMakeBorder(gpuImg,
-                                 mvImagePyramidBorder[0],
+                                 mvGpuImagePyramidBorder[0],
                                  EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                                 BORDER_REFLECT_101, cv::Scalar(), mcvStream);
+                                 BORDER_REFLECT_101, cv::Scalar(), mCvStream);
         }
     }
 
-    mcvStream.waitForCompletion();
+    mCvStream.waitForCompletion();
 
     if (mbImagePyramidAllocFlag == false)
     {
-        mpGaussianFilter = cuda::createGaussianFilter(mvImagePyramid[0].type(),
-                                                      mvImagePyramid[0].type(),
+        mpGaussianFilter = cuda::createGaussianFilter(mvGpuImagePyramid[0].type(),
+                                                      mvGpuImagePyramid[0].type(),
                                                       Size(7, 7), 2, 2, BORDER_REFLECT_101);
 
         mbImagePyramidAllocFlag = true;
@@ -554,8 +554,8 @@ void GpuOrbExtractor::computeKeyPointsOctTree(vector< vector<KeyPoint> > &allKey
     const int minBorderY = minBorderX;
     for (int level = 0; level < nlevels; ++level)
     {
-        const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
-        const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
+        const int maxBorderX = mvGpuImagePyramid[level].cols-EDGE_THRESHOLD+3;
+        const int maxBorderY = mvGpuImagePyramid[level].rows-EDGE_THRESHOLD+3;
 
         vector<cv::KeyPoint> vToDistributeKeys;
         vToDistributeKeys.reserve(nfeatures*10);
@@ -563,7 +563,7 @@ void GpuOrbExtractor::computeKeyPointsOctTree(vector< vector<KeyPoint> > &allKey
         // Detect FAST corners
         if (level == 0)
         {
-            mGpuFast.detectAsync(mvImagePyramid[level].rowRange(minBorderY, maxBorderY).colRange(minBorderX, maxBorderX));
+            mGpuFast.detectAsync(mvGpuImagePyramid[level].rowRange(minBorderY, maxBorderY).colRange(minBorderX, maxBorderX));
         }
 
         mGpuFast.joinDetectAsync(vToDistributeKeys);
@@ -571,10 +571,10 @@ void GpuOrbExtractor::computeKeyPointsOctTree(vector< vector<KeyPoint> > &allKey
         if (level + 1 < nlevels)
         {
             // Pre-process the next level
-            const int maxBorderX = mvImagePyramid[level+1].cols-EDGE_THRESHOLD+3;
-            const int maxBorderY = mvImagePyramid[level+1].rows-EDGE_THRESHOLD+3;
+            const int maxBorderX = mvGpuImagePyramid[level+1].cols-EDGE_THRESHOLD+3;
+            const int maxBorderY = mvGpuImagePyramid[level+1].rows-EDGE_THRESHOLD+3;
 
-            mGpuFast.detectAsync(mvImagePyramid[level+1].rowRange(minBorderY, maxBorderY).colRange(minBorderX, maxBorderX));
+            mGpuFast.detectAsync(mvGpuImagePyramid[level+1].rowRange(minBorderY, maxBorderY).colRange(minBorderX, maxBorderX));
         }
 
         vector<KeyPoint> &keypoints = allKeypoints[level];
@@ -588,7 +588,7 @@ void GpuOrbExtractor::computeKeyPointsOctTree(vector< vector<KeyPoint> > &allKey
         // POP_RANGE;
 
         // Compute orientations and perform Gaussian blur
-        cuda::GpuMat &gpuImg = mvImagePyramid[level];
+        cuda::GpuMat &gpuImg = mvGpuImagePyramid[level];
 
         mGpuFast.getAngle(gpuImg,
                           keypoints.data(),
