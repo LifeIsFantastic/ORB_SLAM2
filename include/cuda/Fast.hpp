@@ -6,10 +6,11 @@
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/core/cuda_devptrs.hpp>
 
-namespace ORB_SLAM2
-{
-namespace cuda
-{
+#include "Thirdparty/uni_fusion/common/include/uni_fusion/common.hpp"
+#include "Thirdparty/uni_fusion/common/include/uni_fusion/common/algorithms/cudev.hpp"
+
+namespace ORB_SLAM2 { namespace cuda {
+
 const float FEATURE_SIZE = 7.0;
 
 class GpuFast
@@ -17,6 +18,8 @@ class GpuFast
 public:
     GpuFast(int hThres, int lThres, int maxKeypoints = 10000);
     ~GpuFast();
+
+    static void loadUMaxData(const int* umax, int count);
 
     void detect(cv::InputArray img,
                 std::vector<cv::KeyPoint> &keypoints);
@@ -27,25 +30,26 @@ public:
     void getAngle(cv::InputArray img,
                   std::vector<cv::KeyPoint> &keypoints,
                   int minBorderX, int minBorderY, int halfPatch,
-                  int octave, int size); // TODO: size (float or int ??)
+                  int octave, float size);
 
     void getAngleAsync(cv::InputArray img,
                        std::vector<cv::KeyPoint> &keypoints,
                        int minBorderX, int minBorderY, int halfPatch,
-                       int octave, int size); // TODO: size (float or int ??)
-    void jointGetAngleAsync(std::vector<cv::KeyPoint> &keypoints);
+                       int octave,
+                       float size);
+    void joinGetAngleAsync(std::vector<cv::KeyPoint> &keypoints);
 
     cv::cuda::Stream& getCvStream() { return mCvStream; }
-
-    static void loadUMaxData(const int* umax, int count);
 
 protected:
     unsigned int mHighThres;
     unsigned int mLowThres;
     unsigned int mMaxKeypoints;
-    unsigned int mCountHost;
 
-    cv::KeyPoint *mpKeyptsDevice;
+    int mCountHost;
+    int *mpCountDevice;
+
+    cv::KeyPoint* mpKeyptsDevice; 
 
     cv::cuda::GpuMat scoreMat;
 
@@ -53,7 +57,6 @@ protected:
     cudaStream_t mCudaStream;
 };
 
-} // namesapce cuda
-} // namespace ORB_SLAM2
+}} // namespace
 
 #endif /* __CUDA_FAST_HPP__ */

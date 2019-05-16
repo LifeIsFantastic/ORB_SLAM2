@@ -335,12 +335,9 @@ static int bit_pattern_31_[256*4] =
 GpuOrbExtractor::GpuOrbExtractor(int _nfeatures, float _scaleFactor, int _nlevels,
                                  int _iniThFAST, int _minThFAST)
     : nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-      iniThFAST(_iniThFAST), minThFAST(_minThFAST)
+      iniThFAST(_iniThFAST), minThFAST(_minThFAST),
+      mGpuFast(iniThFAST, minThFAST), mGpuOrb()
 {
-    // TODO: init mGpuFast and mGpuOrb here
-    // TODO: init mGpuFast and mGpuOrb here
-    // TODO: init mGpuFast and mGpuOrb here
-
     mvScaleFactor.resize(nlevels);
     mvLevelSigma2.resize(nlevels);
     mvScaleFactor[0]=1.0f;
@@ -406,6 +403,10 @@ GpuOrbExtractor::GpuOrbExtractor(int _nfeatures, float _scaleFactor, int _nlevel
     // Load umax data to gpu
     cuda::GpuFast::loadUMaxData(umax.data(), umax.size());
 }
+
+// TODO
+// TODO
+// TODO
 
 void GpuOrbExtractor::operator()(InputArray _image,
                                  InputArray _mask,

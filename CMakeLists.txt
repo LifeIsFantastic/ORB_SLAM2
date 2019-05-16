@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 project(ORB_SLAM2)
 
 IF(NOT CMAKE_BUILD_TYPE)
@@ -9,6 +9,11 @@ MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -Wall  -O3 -march=native ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall   -O3 -march=native")
+
+find_package(CUDA 9.0 REQUIRED)
+set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+set(CUDA_HOST_COMPILER /usr/bin/g++)
+list(APPEND CUDA_NVCC_FLAGS "--compiler-options -fno-strict-aliasing -use_fast_math")
 
 # Check C++11 or C++0x support
 include(CheckCXXCompilerFlag)
@@ -26,15 +31,23 @@ else()
    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
+# Set CUDA NVCC flags
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_30,code=sm_30")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_35,code=sm_35")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_37,code=sm_37")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_50,code=sm_50")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_52,code=sm_52")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_60,code=sm_60")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-gencode;arch=compute_61,code=sm_61")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-Xcompiler;-fPIC")
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--ftz=true;--prec-div=false;--prec-sqrt=false")
+
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
-find_package(OpenCV 3.0 QUIET)
-if(NOT OpenCV_FOUND)
-   find_package(OpenCV 2.4.3 QUIET)
-   if(NOT OpenCV_FOUND)
-      message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
-   endif()
-endif()
+find_package(OpenCV 4 REQUIRED
+NO_MODULE
+PATHS /usr/local
+NO_DEFAULT_PATH)
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
@@ -71,8 +84,7 @@ src/Viewer.cc
 src/FpsWatch.cc
 )
 
-set(CUGL_LIBS ${CUGL_LIBS} ${PROJECT_SOURCE_DIR}/Thirdparty/cugl/lib/libcugl_common.so)
-set(CUGL_LIBS ${CUGL_LIBS} ${PROJECT_SOURCE_DIR}/Thirdparty/cugl/lib/libcugl_visualization.so)
+set(UNIFU_LIBS ${UNIFU_LIBS} ${PROJECT_SOURCE_DIR}/Thirdparty/uni_fusion/lib/libuni_fusion_common.so)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -80,7 +92,7 @@ ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
-${CUGL_LIBS}
+${UNIFU_LIBS}
 )
 
 # Build examples
@@ -115,4 +127,3 @@ target_link_libraries(mono_kitti ${PROJECT_NAME})
 add_executable(mono_euroc
 Examples/Monocular/mono_euroc.cc)
 target_link_libraries(mono_euroc ${PROJECT_NAME})
-

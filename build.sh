@@ -15,9 +15,9 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 
-cd ../../cugl
+cd ../../UniFusion
 
-echo "Configuring and building Thirdparty/cugl ..."
+echo "Configuring and building Thirdparty/UniFusion ..."
 
 mkdir build
 cd build
