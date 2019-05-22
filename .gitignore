@@ -23,4 +23,6 @@ Vocabulary/ORBvoc.txt
 build/
 *~
 lib/
+.vscode/
+Thirdparty/uni_fusion/
 
