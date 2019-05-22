@@ -15,14 +15,14 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 
-cd ../../UniFusion
-
-echo "Configuring and building Thirdparty/UniFusion ..."
-
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j
+# cd ../../UniFusion
+# 
+# echo "Configuring and building Thirdparty/UniFusion ..."
+# 
+# mkdir build
+# cd build
+# cmake .. -DCMAKE_BUILD_TYPE=Release
+# make -j
 
 cd ../../../
 

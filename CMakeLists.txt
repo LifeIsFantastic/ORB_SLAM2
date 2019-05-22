@@ -84,7 +84,7 @@ src/Viewer.cc
 src/FpsWatch.cc
 )
 
-set(UNIFU_LIBS ${UNIFU_LIBS} ${PROJECT_SOURCE_DIR}/Thirdparty/uni_fusion/lib/libuni_fusion_common.so)
+# set(UNIFU_LIBS ${UNIFU_LIBS} ${PROJECT_SOURCE_DIR}/Thirdparty/uni_fusion/lib/libuni_fusion_common.so)
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -92,7 +92,6 @@ ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
-${UNIFU_LIBS}
 )
 
 # Build examples
