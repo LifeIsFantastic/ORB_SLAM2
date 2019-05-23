@@ -770,6 +770,8 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 
     for (int level = 0; level < nlevels; ++level)
     {
+        float scale = mvScaleFactor[level];
+
         const int minBorderX = EDGE_THRESHOLD-3;
         const int minBorderY = minBorderX;
         const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
@@ -821,6 +823,19 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
                     {
                         (*vit).pt.x+=j*wCell;
                         (*vit).pt.y+=i*hCell;
+
+                        // TODO: remove the following code when the lens is clean
+                        cv::Point2f pt_scale = (*vit).pt;
+                        pt_scale.x += minBorderX;
+                        pt_scale.y += minBorderY;
+                        pt_scale *= scale;
+
+                        if ( pt_scale.x > 566 &&
+                             pt_scale.x < 629 && 
+                             pt_scale.y > 100 && 
+                             pt_scale.y < 151 ) // dirty point in the left lens
+                            continue;
+
                         vToDistributeKeys.push_back(*vit);
                     }
                 }
